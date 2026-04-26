@@ -6,8 +6,12 @@ import { drizzle } from "drizzle-orm/libsql";
 
 import * as schema from "./schema";
 
-export const databaseFilePath = join(process.cwd(), ".data", "relay.db");
-export const databaseUrl = `file:${databaseFilePath}`;
+const defaultDatabaseFilePath = join(process.cwd(), ".data", "relay.db");
+
+export const databaseUrl = process.env.DATABASE_URL ?? `file:${defaultDatabaseFilePath}`;
+export const databaseFilePath = databaseUrl.startsWith("file:")
+  ? databaseUrl.slice("file:".length)
+  : defaultDatabaseFilePath;
 
 mkdirSync(dirname(databaseFilePath), { recursive: true });
 

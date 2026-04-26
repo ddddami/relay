@@ -29,6 +29,7 @@ test("deployments route returns persisted deployments", async (t) => {
     status: "pending",
     imageTag: null,
     containerId: null,
+    detectedPort: null,
     url: null,
     createdAt: new Date("2026-04-26T19:00:00.000Z"),
     updatedAt: new Date("2026-04-26T19:00:00.000Z"),
@@ -46,6 +47,7 @@ test("deployments route returns persisted deployments", async (t) => {
       status: "pending",
       imageTag: null,
       containerId: null,
+      detectedPort: null,
       url: null,
       createdAt: "2026-04-26T19:00:00.000Z",
       updatedAt: "2026-04-26T19:00:00.000Z",
@@ -74,6 +76,7 @@ test("deployments route creates a pending deployment", async (t) => {
   assert.equal(payload.status, "pending");
   assert.equal(payload.imageTag, null);
   assert.equal(payload.containerId, null);
+  assert.equal(payload.detectedPort, null);
   assert.equal(payload.url, null);
   assert.match(payload.id, /^[0-9a-f-]{36}$/);
   assert.match(payload.name, /^[a-z]+-[a-z]+-\d{3}$/);
@@ -115,6 +118,7 @@ test("deployment detail route returns a persisted deployment", async (t) => {
     status: "pending",
     imageTag: null,
     containerId: null,
+    detectedPort: null,
     url: null,
     createdAt: new Date("2026-04-26T19:00:00.000Z"),
     updatedAt: new Date("2026-04-26T19:00:00.000Z"),
@@ -132,6 +136,7 @@ test("deployment detail route returns a persisted deployment", async (t) => {
     status: "pending",
     imageTag: null,
     containerId: null,
+    detectedPort: null,
     url: null,
     createdAt: "2026-04-26T19:00:00.000Z",
     updatedAt: "2026-04-26T19:00:00.000Z",
@@ -164,6 +169,7 @@ test("deployment logs route returns an empty list by default", async (t) => {
     status: "pending",
     imageTag: null,
     containerId: null,
+    detectedPort: null,
     url: null,
     createdAt: new Date("2026-04-26T19:00:00.000Z"),
     updatedAt: new Date("2026-04-26T19:00:00.000Z"),
@@ -190,6 +196,7 @@ test("deployment logs route returns persisted logs in timestamp order", async (t
     status: "building",
     imageTag: null,
     containerId: null,
+    detectedPort: null,
     url: null,
     createdAt: new Date("2026-04-26T19:00:00.000Z"),
     updatedAt: new Date("2026-04-26T19:00:00.000Z"),
@@ -248,6 +255,19 @@ test("deployment logs route returns not found for unknown ids", async (t) => {
   });
 });
 
+test("deployment log stream route returns not found for unknown ids", async (t) => {
+  const app = await build(t);
+
+  const res = await app.inject({
+    url: "/deployments/unknown/logs/stream",
+  });
+
+  assert.equal(res.statusCode, 404);
+  assert.deepStrictEqual(JSON.parse(res.payload), {
+    message: "Deployment not found.",
+  });
+});
+
 test("deployment delete route removes a deployment and its logs", async (t) => {
   const app = await build(t);
 
@@ -261,6 +281,7 @@ test("deployment delete route removes a deployment and its logs", async (t) => {
     status: "failed",
     imageTag: null,
     containerId: null,
+    detectedPort: null,
     url: null,
     createdAt: new Date("2026-04-26T19:00:00.000Z"),
     updatedAt: new Date("2026-04-26T19:00:00.000Z"),
@@ -316,6 +337,7 @@ test("deployment redeploy route resets runtime state and appends a log", async (
     status: "failed",
     imageTag: "relay:old-tag",
     containerId: "container_123",
+    detectedPort: 3000,
     url: "/apps/dep_redeploy",
     createdAt: new Date("2026-04-26T19:00:00.000Z"),
     updatedAt: new Date("2026-04-26T19:00:00.000Z"),
@@ -334,6 +356,7 @@ test("deployment redeploy route resets runtime state and appends a log", async (
   assert.equal(payload.status, "pending");
   assert.equal(payload.imageTag, null);
   assert.equal(payload.containerId, null);
+  assert.equal(payload.detectedPort, null);
   assert.equal(payload.url, null);
   assert.notEqual(payload.updatedAt, "2026-04-26T19:00:00.000Z");
 

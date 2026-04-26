@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import { FastifyPluginAsync } from "fastify";
 
+import { appendDeploymentLog, subscribeToDeploymentLogs } from "../../deployments/logs";
 import { startDeploymentRun } from "../../deployments/run";
 import { deploymentLogs, deployments } from "../../db/schema";
 
@@ -60,6 +61,10 @@ function buildDeploymentName() {
   return `${adjective}-${noun}-${suffix}`;
 }
 
+function shouldStartDeploymentRun() {
+  return process.env.DISABLE_DEPLOYMENT_RUNNER !== "1";
+}
+
 const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/", async function () {
     return fastify.db.select().from(deployments).orderBy(desc(deployments.createdAt));
@@ -109,6 +114,56 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
       .orderBy(deploymentLogs.timestamp);
   });
 
+  fastify.get("/:id/logs/stream", async function (request, reply) {
+    const id = (request.params as { id: string }).id;
+    const deployment = await findDeployment(id);
+
+    if (!deployment) {
+      reply.code(404);
+
+      return {
+        message: "Deployment not found.",
+      };
+    }
+
+    reply.raw.setHeader("Content-Type", "text/event-stream");
+    reply.raw.setHeader("Cache-Control", "no-cache, no-transform");
+    reply.raw.setHeader("Connection", "keep-alive");
+    reply.raw.flushHeaders();
+
+    reply.raw.write(": connected\n\n");
+
+    const persistedLogs = await fastify.db
+      .select()
+      .from(deploymentLogs)
+      .where(eq(deploymentLogs.deploymentId, id))
+      .orderBy(deploymentLogs.timestamp);
+
+    for (const log of persistedLogs) {
+      reply.raw.write(
+        `event: log\ndata: ${JSON.stringify({
+          ...log,
+          timestamp: log.timestamp.toISOString(),
+        })}\n\n`,
+      );
+    }
+
+    const unsubscribe = subscribeToDeploymentLogs(id, (log) => {
+      reply.raw.write(`event: log\ndata: ${JSON.stringify(log)}\n\n`);
+    });
+
+    const heartbeat = setInterval(() => {
+      reply.raw.write(": keepalive\n\n");
+    }, 15000);
+
+    request.raw.on("close", () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
+
+    return reply.hijack();
+  });
+
   fastify.delete("/:id", async function (request, reply) {
     const id = (request.params as { id: string }).id;
     const deployment = await findDeployment(id);
@@ -147,23 +202,20 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
         status: "pending",
         imageTag: null,
         containerId: null,
+        detectedPort: null,
         url: null,
         updatedAt: now,
       })
       .where(eq(deployments.id, id));
 
-    await fastify.db.insert(deploymentLogs).values({
-      id: randomUUID(),
-      deploymentId: id,
-      timestamp: now,
-      stream: "system",
-      message: "Redeploy requested",
-    });
+    await appendDeploymentLog(id, "system", "Redeploy requested");
 
     const updatedDeployment = (await findDeployment(id))!;
 
     reply.code(202);
-    startDeploymentRun(id);
+    if (shouldStartDeploymentRun()) {
+      startDeploymentRun(id);
+    }
 
     return updatedDeployment;
   });
@@ -187,6 +239,7 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
       status: "pending" as const,
       imageTag: null,
       containerId: null,
+      detectedPort: null,
       url: null,
       createdAt: now,
       updatedAt: now,
@@ -196,7 +249,9 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
 
     reply.code(201);
 
-    startDeploymentRun(deployment.id);
+    if (shouldStartDeploymentRun()) {
+      startDeploymentRun(deployment.id);
+    }
 
     return deployment;
   });

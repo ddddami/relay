@@ -54,6 +54,21 @@ function formatLogLine(log: DeploymentLog) {
   return `[${timestamp}] ${log.stream}: ${log.message}`;
 }
 
+function getStatusChipClass(status: string) {
+  switch (status) {
+    case "running":
+      return "status-chip status-chip-running";
+    case "failed":
+      return "status-chip status-chip-failed";
+    case "building":
+    case "deploying":
+    case "cloning":
+      return "status-chip status-chip-active";
+    default:
+      return "status-chip status-chip-idle";
+  }
+}
+
 function App() {
   const [repoUrl, setRepoUrl] = useState("");
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<string | null>(null);
@@ -69,6 +84,35 @@ function App() {
     queryFn: () => fetchDeploymentLogs(selectedDeploymentId!),
     enabled: Boolean(selectedDeploymentId),
   });
+
+  useEffect(() => {
+    if (!selectedDeploymentId) {
+      return;
+    }
+
+    const eventSource = new EventSource(`/api/deployments/${selectedDeploymentId}/logs/stream`);
+
+    eventSource.addEventListener("log", (event) => {
+      const log = JSON.parse((event as MessageEvent<string>).data) as DeploymentLog;
+
+      queryClient.setQueryData<DeploymentLog[]>(
+        ["deployment-logs", selectedDeploymentId],
+        (logs) => {
+          if (logs?.some((entry) => entry.id === log.id)) {
+            return logs;
+          }
+
+          return [...(logs ?? []), log];
+        },
+      );
+
+      void queryClient.invalidateQueries({ queryKey: ["deployments"] });
+    });
+
+    return () => {
+      eventSource.close();
+    };
+  }, [queryClient, selectedDeploymentId]);
 
   useEffect(() => {
     if (!deploymentsQuery.data?.length) {
@@ -170,7 +214,7 @@ function App() {
             {deploymentsQuery.isLoading ? (
               <div className="table-row" role="row">
                 <span className="mono">Loading deployments...</span>
-                <span className="status-chip status-chip-idle">Loading</span>
+                <span className={getStatusChipClass("idle")}>Loading</span>
                 <span className="muted">-</span>
                 <span className="muted">-</span>
               </div>
@@ -179,7 +223,7 @@ function App() {
             {deploymentsQuery.isError ? (
               <div className="table-row" role="row">
                 <span className="mono">Failed to load deployments</span>
-                <span className="status-chip status-chip-idle">Error</span>
+                <span className={getStatusChipClass("failed")}>Error</span>
                 <span className="muted">-</span>
                 <span className="muted">-</span>
               </div>
@@ -195,7 +239,9 @@ function App() {
                     onClick={() => setSelectedDeploymentId(deployment.id)}
                   >
                     <span className="mono">{deployment.name}</span>
-                    <span className="status-chip status-chip-idle">{deployment.status}</span>
+                    <span className={getStatusChipClass(deployment.status)}>
+                      {deployment.status}
+                    </span>
                     <span className="muted">{deployment.url ?? "-"}</span>
                     <span className="muted">{formatCreatedAt(deployment.createdAt)}</span>
                   </button>
@@ -207,7 +253,7 @@ function App() {
             !deploymentsQuery.data?.length ? (
               <div className="table-row" role="row">
                 <span className="mono">No deployments yet</span>
-                <span className="status-chip status-chip-idle">Idle</span>
+                <span className={getStatusChipClass("idle")}>Idle</span>
                 <span className="muted">-</span>
                 <span className="muted">-</span>
               </div>
@@ -221,7 +267,7 @@ function App() {
               <h2 id="logs-heading">Logs</h2>
               <p>
                 {selectedDeployment
-                  ? `Viewing ${selectedDeployment.name}`
+                  ? `Viewing ${selectedDeployment.name} (${selectedDeployment.status})`
                   : "Select a deployment to inspect build and runtime output."}
               </p>
             </div>

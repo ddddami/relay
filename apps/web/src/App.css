@@ -171,6 +171,21 @@
   color: #4b5563;
 }
 
+.status-chip-active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-chip-running {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-chip-failed {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 .logs-panel {
   min-height: 320px;
 }
