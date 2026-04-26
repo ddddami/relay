@@ -7,6 +7,9 @@ services:
       - "5173:5173"
     volumes:
       - ./:/workspace
+      - relay_pnpm_store:/workspace/.pnpm-store
+      - relay_node_modules:/workspace/node_modules
+      - relay_web_node_modules:/workspace/apps/web/node_modules
 
   api:
     build:
@@ -18,6 +21,9 @@ services:
       - "3000:3000"
     volumes:
       - ./:/workspace
+      - relay_pnpm_store:/workspace/.pnpm-store
+      - relay_node_modules:/workspace/node_modules
+      - relay_api_node_modules:/workspace/apps/api/node_modules
       - /var/run/docker.sock:/var/run/docker.sock
 
   caddy:
@@ -30,3 +36,9 @@ services:
       - "443:443"
     volumes:
       - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+
+volumes:
+  relay_api_node_modules:
+  relay_node_modules:
+  relay_pnpm_store:
+  relay_web_node_modules:
