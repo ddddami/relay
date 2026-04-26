@@ -1,122 +1,81 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
+    <main className="app-shell">
+      <header className="hero-block">
         <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
+          <p className="eyebrow">Relay</p>
+          <h1>Internal deployment control plane</h1>
+          <p className="hero-copy">
+            Deploy containerized applications, inspect state transitions, and follow live logs from
+            a single surface.
           </p>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+      </header>
+
+      <section className="panel deploy-panel" aria-labelledby="deploy-heading">
+        <div className="panel-header">
+          <div>
+            <h2 id="deploy-heading">New deployment</h2>
+            <p>Start with a public GitHub repository URL.</p>
+          </div>
+        </div>
+
+        <form className="deploy-form">
+          <label className="field-label" htmlFor="repo-url">
+            Repository URL
+          </label>
+          <div className="deploy-form-row">
+            <input
+              id="repo-url"
+              name="repoUrl"
+              type="url"
+              placeholder="https://github.com/acme/example-app"
+            />
+            <button type="submit">Deploy</button>
+          </div>
+        </form>
       </section>
 
-      <div className="ticks"></div>
+      <section className="workspace-grid">
+        <section className="panel" aria-labelledby="deployments-heading">
+          <div className="panel-header">
+            <div>
+              <h2 id="deployments-heading">Deployments</h2>
+              <p>Current runtime history will appear here.</p>
+            </div>
+          </div>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
+          <div className="table-shell" role="table" aria-label="Deployments">
+            <div className="table-row table-row-head" role="row">
+              <span>Name</span>
+              <span>Status</span>
+              <span>URL</span>
+              <span>Created</span>
+            </div>
+            <div className="table-row" role="row">
+              <span className="mono">No deployments yet</span>
+              <span className="status-chip status-chip-idle">Idle</span>
+              <span className="muted">-</span>
+              <span className="muted">-</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="panel logs-panel" aria-labelledby="logs-heading">
+          <div className="panel-header">
+            <div>
+              <h2 id="logs-heading">Logs</h2>
+              <p>Select a deployment to inspect build and runtime output.</p>
+            </div>
+          </div>
+
+          <pre className="log-surface">Waiting for deployment logs.</pre>
+        </section>
       </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    </main>
+  );
 }
 
-export default App
+export default App;
