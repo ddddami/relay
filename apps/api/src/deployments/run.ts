@@ -124,6 +124,18 @@ async function ensureBuildkit() {
   }
 }
 
+function getContainerName(deploymentId: string) {
+  return `relay-deployment-${deploymentId}`;
+}
+
+async function removeContainerIfExists(containerName: string) {
+  try {
+    await runCommand("docker", ["rm", "-f", containerName]);
+  } catch {
+    return;
+  }
+}
+
 async function runDeployment(deploymentId: string) {
   const deployment = await getDeployment(deploymentId);
   if (!deployment) {
@@ -166,7 +178,38 @@ async function runDeployment(deploymentId: string) {
       imageTag: deployment.name,
     });
 
-    await appendLog(deploymentId, "system", "Build finished, runtime deployment step is next");
+    await appendLog(deploymentId, "system", "Starting runtime container");
+
+    const containerName = getContainerName(deploymentId);
+    await removeContainerIfExists(containerName);
+
+    await runCommand(
+      "docker",
+      [
+        "run",
+        "-d",
+        "--name",
+        containerName,
+        "--network",
+        "relay_default",
+        "-e",
+        "PORT=3000",
+        deployment.name,
+      ],
+      {
+        onLine: async (stream, line) => {
+          await appendLog(deploymentId, stream, line);
+        },
+      },
+    );
+
+    await updateDeployment(deploymentId, {
+      status: "running",
+      containerId: containerName,
+      imageTag: deployment.name,
+    });
+
+    await appendLog(deploymentId, "system", "Container started");
   } catch (error) {
     await updateDeployment(deploymentId, { status: "failed" });
     await appendLog(
