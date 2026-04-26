@@ -108,6 +108,24 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
       .orderBy(deploymentLogs.timestamp);
   });
 
+  fastify.delete("/:id", async function (request, reply) {
+    const id = (request.params as { id: string }).id;
+    const deployment = await findDeployment(id);
+
+    if (!deployment) {
+      reply.code(404);
+
+      return {
+        message: "Deployment not found.",
+      };
+    }
+
+    await fastify.db.delete(deploymentLogs).where(eq(deploymentLogs.deploymentId, id));
+    await fastify.db.delete(deployments).where(eq(deployments.id, id));
+
+    reply.code(204);
+  });
+
   fastify.post("/", async function (request, reply) {
     const parsed = parseGitHubRepoUrl((request.body as CreateDeploymentBody | undefined)?.repoUrl);
 

@@ -247,3 +247,58 @@ test("deployment logs route returns not found for unknown ids", async (t) => {
     message: "Deployment not found.",
   });
 });
+
+test("deployment delete route removes a deployment and its logs", async (t) => {
+  const app = await build(t);
+
+  await app.db.delete(deploymentLogs);
+  await app.db.delete(deployments);
+
+  await app.db.insert(deployments).values({
+    id: "dep_delete",
+    name: "storm-fox-123",
+    repoUrl: "https://github.com/acme/example-app",
+    status: "failed",
+    imageTag: null,
+    containerId: null,
+    url: null,
+    createdAt: new Date("2026-04-26T19:00:00.000Z"),
+    updatedAt: new Date("2026-04-26T19:00:00.000Z"),
+  });
+
+  await app.db.insert(deploymentLogs).values({
+    id: "log_delete",
+    deploymentId: "dep_delete",
+    timestamp: new Date("2026-04-26T19:00:01.000Z"),
+    stream: "stderr",
+    message: "deployment failed",
+  });
+
+  const res = await app.inject({
+    method: "DELETE",
+    url: "/deployments/dep_delete",
+  });
+
+  assert.equal(res.statusCode, 204);
+  assert.equal(res.payload, "");
+
+  const remainingDeployments = await app.db.select().from(deployments);
+  const remainingLogs = await app.db.select().from(deploymentLogs);
+
+  assert.deepStrictEqual(remainingDeployments, []);
+  assert.deepStrictEqual(remainingLogs, []);
+});
+
+test("deployment delete route returns not found for unknown ids", async (t) => {
+  const app = await build(t);
+
+  const res = await app.inject({
+    method: "DELETE",
+    url: "/deployments/unknown",
+  });
+
+  assert.equal(res.statusCode, 404);
+  assert.deepStrictEqual(JSON.parse(res.payload), {
+    message: "Deployment not found.",
+  });
+});
