@@ -2,7 +2,6 @@
   "name": "relay",
   "version": "0.0.0",
   "private": true,
-  "packageManager": "pnpm@10.22.0",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r --if-present build",
@@ -12,10 +11,14 @@
     "format:check": "oxfmt . --check",
     "test": "pnpm -r --if-present test",
     "test:run": "pnpm -r --if-present test:run",
-    "typecheck": "pnpm -r --if-present typecheck"
+    "typecheck": "pnpm -r --if-present typecheck",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "oxfmt": "^0.46.0",
     "oxlint": "^1.61.0"
-  }
+  },
+  "packageManager": "pnpm@10.22.0"
 }
