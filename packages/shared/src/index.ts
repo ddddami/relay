@@ -24,3 +24,11 @@ export type Deployment = {
 export type CreateDeploymentInput = {
   repoUrl: string;
 };
+
+export type DeploymentLog = {
+  id: string;
+  deploymentId: string;
+  timestamp: string;
+  stream: string;
+  message: string;
+};
