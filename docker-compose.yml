@@ -2,7 +2,7 @@ services:
   web:
     image: node:22-alpine
     working_dir: /workspace
-    command: sh -c "corepack enable && pnpm install && pnpm --filter web dev -- --host 0.0.0.0 --port 5173"
+    command: sh -c "corepack enable && CI=true pnpm install --frozen-lockfile && pnpm --filter web dev -- --host 0.0.0.0 --port 5173"
     ports:
       - "5173:5173"
     volumes:
@@ -13,7 +13,7 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile.dev
     working_dir: /workspace
-    command: sh -c "corepack enable && pnpm install && pnpm --filter api dev"
+    command: sh -c "corepack enable && CI=true pnpm install --frozen-lockfile && pnpm --filter api start"
     ports:
       - "3000:3000"
     volumes:
