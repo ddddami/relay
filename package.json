@@ -10,6 +10,8 @@
     "lint:fix": "oxlint . --fix",
     "format": "oxfmt .",
     "format:check": "oxfmt . --check",
+    "test": "pnpm -r --if-present test",
+    "test:run": "pnpm -r --if-present test:run",
     "typecheck": "pnpm -r --if-present typecheck"
   },
   "devDependencies": {
