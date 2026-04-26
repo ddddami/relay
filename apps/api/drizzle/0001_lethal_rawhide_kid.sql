@@ -1,0 +1,1 @@
+ALTER TABLE `deployments` ADD `detected_port` integer;

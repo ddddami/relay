@@ -16,6 +16,7 @@ export type Deployment = {
   status: DeploymentStatus;
   imageTag: string | null;
   containerId: string | null;
+  detectedPort: number | null;
   url: string | null;
   createdAt: string;
   updatedAt: string;

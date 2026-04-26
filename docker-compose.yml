@@ -7,6 +7,12 @@ services:
     command: sh -c "pnpm --filter web exec vite --host 0.0.0.0 --port 5173"
     ports:
       - "5173:5173"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     volumes:
       - ./:/workspace
       - relay_pnpm_store:/workspace/.pnpm-store
@@ -21,6 +27,12 @@ services:
     command: sh -c "pnpm --filter api start"
     ports:
       - "3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     volumes:
       - ./:/workspace
       - relay_pnpm_store:/workspace/.pnpm-store
@@ -31,8 +43,10 @@ services:
   caddy:
     image: caddy:2-alpine
     depends_on:
-      - web
-      - api
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"

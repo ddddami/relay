@@ -17,6 +17,7 @@ export const deployments = sqliteTable("deployments", {
   status: text("status", { enum: deploymentStatusValues }).notNull(),
   imageTag: text("image_tag"),
   containerId: text("container_id"),
+  detectedPort: integer("detected_port"),
   url: text("url"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
