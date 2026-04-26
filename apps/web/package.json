@@ -12,6 +12,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@relay/shared": "workspace:*",
+    "@tanstack/react-query": "^5.100.5",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },

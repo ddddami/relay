@@ -92,6 +92,20 @@
   font-weight: 600;
 }
 
+.deploy-form-row button:disabled,
+.deploy-form-row input:disabled {
+  opacity: 0.7;
+}
+
+.feedback {
+  margin: 0;
+  font-size: 13px;
+}
+
+.feedback-error {
+  color: #b91c1c;
+}
+
 .workspace-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
