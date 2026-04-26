@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import { FastifyPluginAsync } from "fastify";
 
+import { startDeploymentRun } from "../../deployments/run";
 import { deploymentLogs, deployments } from "../../db/schema";
 
 type CreateDeploymentBody = {
@@ -159,9 +160,12 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
       message: "Redeploy requested",
     });
 
-    reply.code(202);
+    const updatedDeployment = (await findDeployment(id))!;
 
-    return (await findDeployment(id))!;
+    reply.code(202);
+    startDeploymentRun(id);
+
+    return updatedDeployment;
   });
 
   fastify.post("/", async function (request, reply) {
@@ -191,6 +195,8 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
     await fastify.db.insert(deployments).values(deployment);
 
     reply.code(201);
+
+    startDeploymentRun(deployment.id);
 
     return deployment;
   });
