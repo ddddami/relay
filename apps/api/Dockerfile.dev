@@ -4,6 +4,13 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends bash ca-certificates curl docker.io git tar \
   && rm -rf /var/lib/apt/lists/*
 
+RUN corepack enable
+
 RUN curl -sSL https://railpack.com/install.sh | sh -s -- --yes
 
 WORKDIR /workspace
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json apps/api/package.json
+
+RUN pnpm install --frozen-lockfile
