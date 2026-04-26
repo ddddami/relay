@@ -10,6 +10,7 @@ import { deploymentLogs, deployments } from "../db/schema";
 
 type CommandOptions = {
   cwd?: string;
+  env?: NodeJS.ProcessEnv;
   onLine?: (stream: "stdout" | "stderr", line: string) => Promise<void>;
 };
 
@@ -54,7 +55,10 @@ async function getDeployment(deploymentId: string) {
 async function runCommand(command: string, args: string[], options: CommandOptions = {}) {
   const child = spawn(command, args, {
     cwd: options.cwd,
-    env: process.env,
+    env: {
+      ...process.env,
+      ...options.env,
+    },
   });
 
   const handleStream = (stream: "stdout" | "stderr", source: NodeJS.ReadableStream) => {
@@ -104,6 +108,22 @@ export function startDeploymentRun(deploymentId: string) {
   void runDeployment(deploymentId);
 }
 
+async function ensureBuildkit() {
+  try {
+    await runCommand("docker", ["inspect", "-f", "{{.State.Running}}", "relay-buildkit"]);
+    return;
+  } catch {
+    await runCommand("docker", [
+      "run",
+      "--privileged",
+      "-d",
+      "--name",
+      "relay-buildkit",
+      "moby/buildkit",
+    ]);
+  }
+}
+
 async function runDeployment(deploymentId: string) {
   const deployment = await getDeployment(deploymentId);
   if (!deployment) {
@@ -129,8 +149,13 @@ async function runDeployment(deploymentId: string) {
     await updateDeployment(deploymentId, { status: "building" });
     await appendLog(deploymentId, "system", "Starting Railpack build");
 
+    await ensureBuildkit();
+
     await runCommand("railpack", ["build", "."], {
       cwd: sourceDir,
+      env: {
+        BUILDKIT_HOST: "docker-container://relay-buildkit",
+      },
       onLine: async (stream, line) => {
         await appendLog(deploymentId, stream, line);
       },
