@@ -207,6 +207,7 @@ async function runDeployment(deploymentId: string) {
       status: "running",
       containerId: containerName,
       imageTag: deployment.name,
+      url: `/apps/${deploymentId}`,
     });
 
     await appendLog(deploymentId, "system", "Container started");
