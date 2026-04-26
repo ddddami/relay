@@ -4,36 +4,39 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
 
-class MockEventSource {
-  static instances: MockEventSource[] = [];
-
-  listeners = new Map<string, Set<(event: MessageEvent<string>) => void>>();
+type MockEventSourceInstance = {
   url: string;
+  addEventListener: (type: string, listener: (event: MessageEvent<string>) => void) => void;
+  emit: (type: string, data: string) => void;
+  close: () => void;
+};
 
-  constructor(url: string) {
-    this.url = url;
-    MockEventSource.instances.push(this);
-  }
+const mockEventSourceInstances: MockEventSourceInstance[] = [];
 
-  addEventListener(type: string, listener: (event: MessageEvent<string>) => void) {
-    const listeners = this.listeners.get(type) ?? new Set<(event: MessageEvent<string>) => void>();
-    listeners.add(listener);
-    this.listeners.set(type, listeners);
-  }
+function createMockEventSource(url: string): MockEventSourceInstance {
+  const listeners = new Map<string, Set<(event: MessageEvent<string>) => void>>();
 
-  emit(type: string, data: string) {
-    const listeners = this.listeners.get(type);
-    if (!listeners) {
-      return;
-    }
+  return {
+    url,
+    addEventListener(type, listener) {
+      const listenersForType =
+        listeners.get(type) ?? new Set<(event: MessageEvent<string>) => void>();
+      listenersForType.add(listener);
+      listeners.set(type, listenersForType);
+    },
+    emit(type, data) {
+      const listenersForType = listeners.get(type);
+      if (!listenersForType) {
+        return;
+      }
 
-    const event = { data } as MessageEvent<string>;
-    for (const listener of listeners) {
-      listener(event);
-    }
-  }
-
-  close() {}
+      const event = { data } as MessageEvent<string>;
+      for (const listener of listenersForType) {
+        listener(event);
+      }
+    },
+    close() {},
+  };
 }
 
 function renderApp() {
@@ -54,6 +57,12 @@ function renderApp() {
 
 describe("App", () => {
   beforeEach(() => {
+    const mockEventSource = vi.fn(function MockEventSource(url: string) {
+      const instance = createMockEventSource(url);
+      mockEventSourceInstances.push(instance);
+      return instance;
+    });
+
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
@@ -101,11 +110,11 @@ describe("App", () => {
       }),
     );
 
-    vi.stubGlobal("EventSource", MockEventSource as unknown as typeof EventSource);
+    vi.stubGlobal("EventSource", mockEventSource as unknown as typeof EventSource);
   });
 
   afterEach(() => {
-    MockEventSource.instances = [];
+    mockEventSourceInstances.length = 0;
     vi.unstubAllGlobals();
   });
 
@@ -124,7 +133,7 @@ describe("App", () => {
 
     expect(await screen.findByText(/cloning repo/)).toBeInTheDocument();
 
-    MockEventSource.instances[0].emit(
+    mockEventSourceInstances[0].emit(
       "log",
       JSON.stringify({
         id: "log_2",
