@@ -6,7 +6,14 @@
   "scripts": {
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r --if-present build",
-    "lint": "pnpm -r --if-present lint",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix",
+    "format": "oxfmt .",
+    "format:check": "oxfmt . --check",
     "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.46.0",
+    "oxlint": "^1.61.0"
   }
 }
