@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import { FastifyPluginAsync } from "fastify";
 
-import { deployments } from "../../db/schema";
+import { deploymentLogs, deployments } from "../../db/schema";
 
 type CreateDeploymentBody = {
   repoUrl?: unknown;
@@ -59,15 +59,21 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
     return fastify.db.select().from(deployments).orderBy(desc(deployments.createdAt));
   });
 
-  fastify.get("/:id", async function (request, reply) {
-    const id = (request.params as { id: string }).id;
+  async function findDeployment(id: string) {
     const result = await fastify.db
       .select()
       .from(deployments)
       .where(eq(deployments.id, id))
       .limit(1);
 
-    if (!result.length) {
+    return result[0] ?? null;
+  }
+
+  fastify.get("/:id", async function (request, reply) {
+    const id = (request.params as { id: string }).id;
+    const result = await findDeployment(id);
+
+    if (!result) {
       reply.code(404);
 
       return {
@@ -75,7 +81,26 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
       };
     }
 
-    return result[0];
+    return result;
+  });
+
+  fastify.get("/:id/logs", async function (request, reply) {
+    const id = (request.params as { id: string }).id;
+    const deployment = await findDeployment(id);
+
+    if (!deployment) {
+      reply.code(404);
+
+      return {
+        message: "Deployment not found.",
+      };
+    }
+
+    return fastify.db
+      .select()
+      .from(deploymentLogs)
+      .where(eq(deploymentLogs.deploymentId, id))
+      .orderBy(deploymentLogs.timestamp);
   });
 
   fastify.post("/", async function (request, reply) {
