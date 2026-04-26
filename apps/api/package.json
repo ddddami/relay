@@ -11,6 +11,7 @@
   "main": "app.ts",
   "scripts": {
     "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "drizzle-kit push",
     "test": "pnpm run build:ts && tsc -p test/tsconfig.json && c8 node --test -r ts-node/register \"test/**/*.ts\"",
     "start": "pnpm run build:ts && fastify start -l info --address 0.0.0.0 --port 3000 dist/app.js",
@@ -24,20 +25,20 @@
   "dependencies": {
     "@fastify/autoload": "^6.0.0",
     "@fastify/sensible": "^6.0.0",
-    "better-sqlite3": "^12.9.0",
+    "@libsql/client": "^0.17.3",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.0.0",
     "fastify-cli": "^7.4.1",
     "fastify-plugin": "^5.0.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.0.8",
     "c8": "^10.1.2",
     "concurrently": "^9.0.0",
     "drizzle-kit": "^0.31.10",
     "fastify-tsconfig": "^3.0.0",
     "ts-node": "^10.4.0",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.2"
   }
 }
