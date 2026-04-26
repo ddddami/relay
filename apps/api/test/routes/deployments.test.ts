@@ -1,5 +1,6 @@
 import * as assert from "node:assert";
 import { test } from "node:test";
+import { eq } from "drizzle-orm";
 
 import { deploymentLogs, deployments } from "../../src/db/schema";
 import { build } from "../helper";
@@ -295,6 +296,64 @@ test("deployment delete route returns not found for unknown ids", async (t) => {
   const res = await app.inject({
     method: "DELETE",
     url: "/deployments/unknown",
+  });
+
+  assert.equal(res.statusCode, 404);
+  assert.deepStrictEqual(JSON.parse(res.payload), {
+    message: "Deployment not found.",
+  });
+});
+
+test("deployment redeploy route resets runtime state and appends a log", async (t) => {
+  const app = await build(t);
+
+  await app.db.delete(deploymentLogs);
+  await app.db.delete(deployments);
+
+  await app.db.insert(deployments).values({
+    id: "dep_redeploy",
+    name: "storm-fox-123",
+    repoUrl: "https://github.com/acme/example-app",
+    status: "failed",
+    imageTag: "relay:old-tag",
+    containerId: "container_123",
+    url: "/apps/dep_redeploy",
+    createdAt: new Date("2026-04-26T19:00:00.000Z"),
+    updatedAt: new Date("2026-04-26T19:00:00.000Z"),
+  });
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/deployments/dep_redeploy/redeploy",
+  });
+
+  assert.equal(res.statusCode, 202);
+
+  const payload = JSON.parse(res.payload);
+
+  assert.equal(payload.id, "dep_redeploy");
+  assert.equal(payload.status, "pending");
+  assert.equal(payload.imageTag, null);
+  assert.equal(payload.containerId, null);
+  assert.equal(payload.url, null);
+  assert.notEqual(payload.updatedAt, "2026-04-26T19:00:00.000Z");
+
+  const logs = await app.db
+    .select()
+    .from(deploymentLogs)
+    .where(eq(deploymentLogs.deploymentId, "dep_redeploy"));
+
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].stream, "system");
+  assert.equal(logs[0].message, "Redeploy requested");
+});
+
+test("deployment redeploy route returns not found for unknown ids", async (t) => {
+  const app = await build(t);
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/deployments/unknown/redeploy",
   });
 
   assert.equal(res.statusCode, 404);

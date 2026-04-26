@@ -126,6 +126,44 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
     reply.code(204);
   });
 
+  fastify.post("/:id/redeploy", async function (request, reply) {
+    const id = (request.params as { id: string }).id;
+    const deployment = await findDeployment(id);
+
+    if (!deployment) {
+      reply.code(404);
+
+      return {
+        message: "Deployment not found.",
+      };
+    }
+
+    const now = new Date();
+
+    await fastify.db
+      .update(deployments)
+      .set({
+        status: "pending",
+        imageTag: null,
+        containerId: null,
+        url: null,
+        updatedAt: now,
+      })
+      .where(eq(deployments.id, id));
+
+    await fastify.db.insert(deploymentLogs).values({
+      id: randomUUID(),
+      deploymentId: id,
+      timestamp: now,
+      stream: "system",
+      message: "Redeploy requested",
+    });
+
+    reply.code(202);
+
+    return (await findDeployment(id))!;
+  });
+
   fastify.post("/", async function (request, reply) {
     const parsed = parseGitHubRepoUrl((request.body as CreateDeploymentBody | undefined)?.repoUrl);
 
