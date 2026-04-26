@@ -10,6 +10,8 @@
   },
   "main": "app.ts",
   "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
     "test": "pnpm run build:ts && tsc -p test/tsconfig.json && c8 node --test -r ts-node/register \"test/**/*.ts\"",
     "start": "pnpm run build:ts && fastify start -l info --address 0.0.0.0 --port 3000 dist/app.js",
     "build": "pnpm run build:ts",
