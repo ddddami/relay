@@ -9,7 +9,9 @@ services:
       - ./:/workspace
 
   api:
-    image: node:22-alpine
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
     working_dir: /workspace
     command: sh -c "corepack enable && pnpm install && pnpm --filter api dev"
     ports:
