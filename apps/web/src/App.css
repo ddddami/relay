@@ -129,6 +129,19 @@
   border-top: 1px solid #e5e7eb;
 }
 
+.table-row-button {
+  width: 100%;
+  border-inline: none;
+  border-bottom: none;
+  background: #ffffff;
+  text-align: left;
+}
+
+.table-row-button:hover,
+.table-row-selected {
+  background: #f8fafc;
+}
+
 .table-row:first-child {
   border-top: none;
 }

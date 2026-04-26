@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
-import type { CreateDeploymentInput, Deployment } from "@relay/shared";
+import type { CreateDeploymentInput, Deployment, DeploymentLog } from "@relay/shared";
 
 import "./App.css";
 
@@ -11,6 +11,16 @@ async function fetchDeployments(): Promise<Deployment[]> {
 
   if (!response.ok) {
     throw new Error("Failed to load deployments.");
+  }
+
+  return response.json();
+}
+
+async function fetchDeploymentLogs(deploymentId: string): Promise<DeploymentLog[]> {
+  const response = await fetch(`/api/deployments/${deploymentId}/logs`);
+
+  if (!response.ok) {
+    throw new Error("Failed to load deployment logs.");
   }
 
   return response.json();
@@ -38,8 +48,15 @@ function formatCreatedAt(value: string) {
   return new Date(value).toLocaleString();
 }
 
+function formatLogLine(log: DeploymentLog) {
+  const timestamp = new Date(log.timestamp).toLocaleTimeString();
+
+  return `[${timestamp}] ${log.stream}: ${log.message}`;
+}
+
 function App() {
   const [repoUrl, setRepoUrl] = useState("");
+  const [selectedDeploymentId, setSelectedDeploymentId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const deploymentsQuery = useQuery({
@@ -47,13 +64,39 @@ function App() {
     queryFn: fetchDeployments,
   });
 
+  const deploymentLogsQuery = useQuery({
+    queryKey: ["deployment-logs", selectedDeploymentId],
+    queryFn: () => fetchDeploymentLogs(selectedDeploymentId!),
+    enabled: Boolean(selectedDeploymentId),
+  });
+
+  useEffect(() => {
+    if (!deploymentsQuery.data?.length) {
+      setSelectedDeploymentId(null);
+      return;
+    }
+
+    if (
+      selectedDeploymentId &&
+      deploymentsQuery.data.some((deployment) => deployment.id === selectedDeploymentId)
+    ) {
+      return;
+    }
+
+    setSelectedDeploymentId(deploymentsQuery.data[0].id);
+  }, [deploymentsQuery.data, selectedDeploymentId]);
+
   const createDeploymentMutation = useMutation({
     mutationFn: createDeployment,
-    onSuccess: async () => {
+    onSuccess: async (deployment) => {
       setRepoUrl("");
+      setSelectedDeploymentId(deployment.id);
       await queryClient.invalidateQueries({ queryKey: ["deployments"] });
     },
   });
+
+  const selectedDeployment =
+    deploymentsQuery.data?.find((deployment) => deployment.id === selectedDeploymentId) ?? null;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -144,12 +187,18 @@ function App() {
 
             {deploymentsQuery.data?.length
               ? deploymentsQuery.data.map((deployment) => (
-                  <div className="table-row" role="row" key={deployment.id}>
+                  <button
+                    className={`table-row table-row-button${selectedDeploymentId === deployment.id ? " table-row-selected" : ""}`}
+                    role="row"
+                    type="button"
+                    key={deployment.id}
+                    onClick={() => setSelectedDeploymentId(deployment.id)}
+                  >
                     <span className="mono">{deployment.name}</span>
                     <span className="status-chip status-chip-idle">{deployment.status}</span>
                     <span className="muted">{deployment.url ?? "-"}</span>
                     <span className="muted">{formatCreatedAt(deployment.createdAt)}</span>
-                  </div>
+                  </button>
                 ))
               : null}
 
@@ -170,11 +219,32 @@ function App() {
           <div className="panel-header">
             <div>
               <h2 id="logs-heading">Logs</h2>
-              <p>Select a deployment to inspect build and runtime output.</p>
+              <p>
+                {selectedDeployment
+                  ? `Viewing ${selectedDeployment.name}`
+                  : "Select a deployment to inspect build and runtime output."}
+              </p>
             </div>
           </div>
 
-          <pre className="log-surface">Waiting for deployment logs.</pre>
+          <pre className="log-surface">
+            {!selectedDeploymentId ? "Waiting for deployment logs." : null}
+            {selectedDeploymentId && deploymentLogsQuery.isLoading
+              ? "Loading deployment logs..."
+              : null}
+            {selectedDeploymentId && deploymentLogsQuery.isError
+              ? "Failed to load deployment logs."
+              : null}
+            {selectedDeploymentId &&
+            !deploymentLogsQuery.isLoading &&
+            !deploymentLogsQuery.isError &&
+            !deploymentLogsQuery.data?.length
+              ? "No logs available yet."
+              : null}
+            {deploymentLogsQuery.data?.length
+              ? deploymentLogsQuery.data.map(formatLogLine).join("\n")
+              : null}
+          </pre>
         </section>
       </section>
     </main>
