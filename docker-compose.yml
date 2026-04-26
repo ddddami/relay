@@ -1,0 +1,26 @@
+services:
+  web:
+    image: node:22-alpine
+    working_dir: /workspace
+    command: sh -c "tail -f /dev/null"
+    volumes:
+      - ./:/workspace
+
+  api:
+    image: node:22-alpine
+    working_dir: /workspace
+    command: sh -c "tail -f /dev/null"
+    volumes:
+      - ./:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      - web
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
