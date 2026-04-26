@@ -1,9 +1,15 @@
-import { FastifyPluginAsync } from 'fastify'
+import { FastifyPluginAsync } from "fastify";
 
-const root: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
-  fastify.get('/', async function (request, reply) {
-    return { root: true }
-  })
-}
+const root: FastifyPluginAsync = async (fastify): Promise<void> => {
+  const payload = { ok: true, service: "relay-api" };
 
-export default root
+  fastify.get("/", async function () {
+    return payload;
+  });
+
+  fastify.get("/health", async function () {
+    return payload;
+  });
+};
+
+export default root;

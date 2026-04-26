@@ -1,12 +1,29 @@
-import { test } from 'node:test'
-import * as assert from 'node:assert'
-import { build } from '../helper'
+import { test } from "node:test";
+import * as assert from "node:assert";
+import { build } from "../helper";
 
-test('default root route', async (t) => {
-  const app = await build(t)
+test("root route returns API status", async (t) => {
+  const app = await build(t);
 
   const res = await app.inject({
-    url: '/'
-  })
-  assert.deepStrictEqual(JSON.parse(res.payload), { root: true })
-})
+    url: "/",
+  });
+
+  assert.deepStrictEqual(JSON.parse(res.payload), {
+    ok: true,
+    service: "relay-api",
+  });
+});
+
+test("health route returns API status", async (t) => {
+  const app = await build(t);
+
+  const res = await app.inject({
+    url: "/health",
+  });
+
+  assert.deepStrictEqual(JSON.parse(res.payload), {
+    ok: true,
+    service: "relay-api",
+  });
+});
