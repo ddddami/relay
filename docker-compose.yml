@@ -2,14 +2,18 @@ services:
   web:
     image: node:22-alpine
     working_dir: /workspace
-    command: sh -c "tail -f /dev/null"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter web dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
     volumes:
       - ./:/workspace
 
   api:
     image: node:22-alpine
     working_dir: /workspace
-    command: sh -c "tail -f /dev/null"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter api dev -- --address 0.0.0.0 --port 3000"
+    ports:
+      - "3000:3000"
     volumes:
       - ./:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
