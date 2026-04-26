@@ -44,14 +44,19 @@ function parseGitHubRepoUrl(value: unknown) {
 
   return {
     repoUrl,
-    repoName: repo.toLowerCase(),
   };
 }
 
-function buildDeploymentName(repoName: string) {
+const deploymentNameAdjectives = ["storm", "blue", "ember", "silent", "rapid", "bright"];
+const deploymentNameNouns = ["fox", "wave", "forge", "field", "stack", "orbit"];
+
+function buildDeploymentName() {
+  const adjective =
+    deploymentNameAdjectives[Math.floor(Math.random() * deploymentNameAdjectives.length)];
+  const noun = deploymentNameNouns[Math.floor(Math.random() * deploymentNameNouns.length)];
   const suffix = Math.floor(Math.random() * 900) + 100;
 
-  return `${repoName}-${suffix}`;
+  return `${adjective}-${noun}-${suffix}`;
 }
 
 const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
@@ -117,7 +122,7 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
     const now = new Date();
     const deployment = {
       id: randomUUID(),
-      name: buildDeploymentName(parsed.repoName),
+      name: buildDeploymentName(),
       repoUrl: parsed.repoUrl,
       status: "pending" as const,
       imageTag: null,

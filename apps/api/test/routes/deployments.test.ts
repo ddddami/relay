@@ -75,7 +75,7 @@ test("deployments route creates a pending deployment", async (t) => {
   assert.equal(payload.containerId, null);
   assert.equal(payload.url, null);
   assert.match(payload.id, /^[0-9a-f-]{36}$/);
-  assert.match(payload.name, /^example-app-\d{3}$/);
+  assert.match(payload.name, /^[a-z]+-[a-z]+-\d{3}$/);
   assert.ok(Date.parse(payload.createdAt));
   assert.equal(payload.createdAt, payload.updatedAt);
 
