@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { FastifyPluginAsync } from "fastify";
 
 import { deployments } from "../../db/schema";
@@ -57,6 +57,25 @@ function buildDeploymentName(repoName: string) {
 const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/", async function () {
     return fastify.db.select().from(deployments).orderBy(desc(deployments.createdAt));
+  });
+
+  fastify.get("/:id", async function (request, reply) {
+    const id = (request.params as { id: string }).id;
+    const result = await fastify.db
+      .select()
+      .from(deployments)
+      .where(eq(deployments.id, id))
+      .limit(1);
+
+    if (!result.length) {
+      reply.code(404);
+
+      return {
+        message: "Deployment not found.",
+      };
+    }
+
+    return result[0];
   });
 
   fastify.post("/", async function (request, reply) {

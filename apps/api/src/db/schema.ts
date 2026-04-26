@@ -1,4 +1,5 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm";
 
 export const deploymentStatusValues = [
   "pending",
@@ -28,3 +29,14 @@ export const deploymentLogs = sqliteTable("deployment_logs", {
   stream: text("stream").notNull(),
   message: text("message").notNull(),
 });
+
+export const deploymentsRelations = relations(deployments, ({ many }) => ({
+  logs: many(deploymentLogs),
+}));
+
+export const deploymentLogsRelations = relations(deploymentLogs, ({ one }) => ({
+  deployment: one(deployments, {
+    fields: [deploymentLogs.deploymentId],
+    references: [deployments.id],
+  }),
+}));

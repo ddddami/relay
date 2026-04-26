@@ -102,3 +102,51 @@ test("deployments route rejects invalid repository URLs", async (t) => {
     message: "A valid public GitHub repository URL is required.",
   });
 });
+
+test("deployment detail route returns a persisted deployment", async (t) => {
+  const app = await build(t);
+
+  await app.db.delete(deployments);
+
+  await app.db.insert(deployments).values({
+    id: "dep_detail",
+    name: "storm-fox-123",
+    repoUrl: "https://github.com/acme/example-app",
+    status: "pending",
+    imageTag: null,
+    containerId: null,
+    url: null,
+    createdAt: new Date("2026-04-26T19:00:00.000Z"),
+    updatedAt: new Date("2026-04-26T19:00:00.000Z"),
+  });
+
+  const res = await app.inject({
+    url: "/deployments/dep_detail",
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.deepStrictEqual(JSON.parse(res.payload), {
+    id: "dep_detail",
+    name: "storm-fox-123",
+    repoUrl: "https://github.com/acme/example-app",
+    status: "pending",
+    imageTag: null,
+    containerId: null,
+    url: null,
+    createdAt: "2026-04-26T19:00:00.000Z",
+    updatedAt: "2026-04-26T19:00:00.000Z",
+  });
+});
+
+test("deployment detail route returns not found for unknown ids", async (t) => {
+  const app = await build(t);
+
+  const res = await app.inject({
+    url: "/deployments/unknown",
+  });
+
+  assert.equal(res.statusCode, 404);
+  assert.deepStrictEqual(JSON.parse(res.payload), {
+    message: "Deployment not found.",
+  });
+});
