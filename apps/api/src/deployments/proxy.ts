@@ -4,6 +4,8 @@ import { eq } from "drizzle-orm";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { deployments } from "../db/schema";
+import { reconcileDeploymentRuntime } from "./runtime";
+
 export async function getRunningDeployment(fastify: FastifyInstance, deploymentId: string) {
   const result = await fastify.db
     .select()
@@ -17,6 +19,11 @@ export async function getRunningDeployment(fastify: FastifyInstance, deploymentI
   }
 
   if (deployment.status !== "running" || !deployment.containerId) {
+    return false;
+  }
+
+  const isRuntimeAvailable = await reconcileDeploymentRuntime(fastify, deployment);
+  if (!isRuntimeAvailable) {
     return false;
   }
 

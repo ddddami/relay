@@ -148,10 +148,8 @@ export function startDeploymentRun(deploymentId: string) {
 }
 
 async function ensureBuildkit() {
-  try {
-    await runCommand("docker", ["inspect", "-f", "{{.State.Running}}", "relay-buildkit"]);
-    return;
-  } catch {
+  async function createBuildkit() {
+    await runCommand("docker", ["rm", "-f", "relay-buildkit"]);
     await runCommand("docker", [
       "run",
       "--privileged",
@@ -160,6 +158,36 @@ async function ensureBuildkit() {
       "relay-buildkit",
       "moby/buildkit",
     ]);
+  }
+
+  try {
+    const result = await runCommandCapture("docker", [
+      "inspect",
+      "-f",
+      "{{.State.Running}}",
+      "relay-buildkit",
+    ]);
+
+    if (result.stdout.trim() === "true") {
+      return;
+    }
+
+    await runCommand("docker", ["start", "relay-buildkit"]);
+
+    const restarted = await runCommandCapture("docker", [
+      "inspect",
+      "-f",
+      "{{.State.Running}}",
+      "relay-buildkit",
+    ]);
+    if (restarted.stdout.trim() === "true") {
+      return;
+    }
+
+    await createBuildkit();
+    return;
+  } catch {
+    await createBuildkit();
   }
 }
 
