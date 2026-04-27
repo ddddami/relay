@@ -2,6 +2,8 @@
 
 **A deployment pipeline in one page.** Paste a public GitHub repository URL, build it with Railpack, run it as a container, and route it through Caddy from a single UI.
 
+<img width="3024" height="1646" alt="Screenshot 2026-04-27 at 03 47 37" src="https://github.com/user-attachments/assets/f334f522-6d26-4db3-bf09-c607805a435e" />
+
 > Built for the Brimble take-home task. This is a scoped prototype, not a production-ready platform.
 
 ## Quick Start
