@@ -195,7 +195,13 @@ function getContainerName(deploymentId: string) {
   return `relay-deployment-${deploymentId}`;
 }
 
-async function removeContainerIfExists(containerName: string) {
+export async function removeContainerIfExists(containerName: string) {
+  try {
+    await runCommand("docker", ["stop", "--time", "10", containerName]);
+  } catch {
+    // Ignore stop errors and fall through to force removal.
+  }
+
   try {
     await runCommand("docker", ["rm", "-f", containerName]);
   } catch {

@@ -229,6 +229,7 @@ mise run compose-refresh-deps
 ### Then
 
 - make runtime contracts more explicit for deployed apps
+- replace blunt container teardown with more explicit lifecycle handling
 - improve failure summaries in the UI beyond raw logs
 - add image/cache reuse strategy for faster rebuilds
 - add private repo support through GitHub auth

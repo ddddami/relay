@@ -4,7 +4,7 @@ import { desc, eq } from "drizzle-orm";
 import { FastifyPluginAsync } from "fastify";
 
 import { appendDeploymentLog, subscribeToDeploymentLogs } from "../../deployments/logs";
-import { startDeploymentRun } from "../../deployments/run";
+import { removeContainerIfExists, startDeploymentRun } from "../../deployments/run";
 import { deploymentLogs, deployments } from "../../db/schema";
 
 type CreateDeploymentBody = {
@@ -176,6 +176,11 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
       };
     }
 
+    if (deployment.containerId) {
+      await appendDeploymentLog(id, "system", "Stopping runtime container");
+      await removeContainerIfExists(deployment.containerId);
+    }
+
     await fastify.db.delete(deploymentLogs).where(eq(deploymentLogs.deploymentId, id));
     await fastify.db.delete(deployments).where(eq(deployments.id, id));
 
@@ -195,6 +200,11 @@ const deploymentRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const now = new Date();
+
+    if (deployment.containerId) {
+      await appendDeploymentLog(id, "system", "Stopping runtime container for redeploy");
+      await removeContainerIfExists(deployment.containerId);
+    }
 
     await fastify.db
       .update(deployments)
