@@ -244,15 +244,6 @@ mise run compose-refresh-deps
 - Uses Railpack to produce runnable images
 - Keeps the product surface to one UI and one API
 
-## Brimble Feedback
-
-This section is intentionally left ready to fill with the real deployed link and feedback after Brimble submission:
-
-- deployed app URL
-- friction points
-- what worked well
-- product feedback priorities
-
 ## Time Spent
 
 Roughly 2 to 3 days across planning, infra debugging, runtime behavior, UI wiring and screaming at my laptop.
