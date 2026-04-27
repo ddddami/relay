@@ -18,12 +18,12 @@ Requirements:
 ```bash
 git clone https://github.com/ddddami/relay
 cd relay
-docker compose up --build
+docker compose up
 ```
 
 Open `http://localhost`.
 
-If you have older local images cached after changing dependencies or Dockerfiles, use `docker compose up --build` instead.
+If you change workspace dependencies or Dockerfiles locally and want a fresh rebuild, use `docker compose up --build`.
 
 ### Option 2: Mise
 
@@ -59,6 +59,8 @@ This implementation is intentionally aligned to the take-home brief:
 - Docker runtime orchestration
 - Caddy as the single ingress point
 - Compact, maintainable code over feature breadth
+
+I kept the frontend to a single view and used TanStack Query for server state. I did not add TanStack Router because there is no multi-page surface in this prototype.
 
 Out of scope by design:
 

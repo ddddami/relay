@@ -1,7 +1,8 @@
 {
   "name": "api",
   "version": "1.0.0",
-  "description": "This project was bootstrapped with Fastify-CLI.",
+  "private": true,
+  "description": "Fastify API for Relay's one-page deployment pipeline prototype.",
   "keywords": [],
   "license": "ISC",
   "author": "",
