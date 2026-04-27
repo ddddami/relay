@@ -1,0 +1,27 @@
+[tools]
+node = "22"
+pnpm = "10.22.0"
+
+[tasks.install]
+description = "Install workspace dependencies"
+run = "pnpm install"
+
+[tasks.dev]
+description = "Start the full Docker Compose stack"
+run = "docker compose up --build"
+
+[tasks.test]
+description = "Run workspace tests"
+run = "pnpm test:run"
+
+[tasks.typecheck]
+description = "Run workspace typechecks"
+run = "pnpm typecheck"
+
+[tasks.lint]
+description = "Run repository lint"
+run = "pnpm lint"
+
+[tasks.compose-refresh-deps]
+description = "Refresh mounted compose dependency volumes"
+run = "docker compose run --rm -e CI=true api pnpm install --frozen-lockfile && docker compose run --rm -e CI=true web pnpm install --frozen-lockfile && docker compose up -d"

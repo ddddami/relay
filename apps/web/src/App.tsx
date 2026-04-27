@@ -1,8 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { ExternalLink, RefreshCcw, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
-import type { CreateDeploymentInput, Deployment, DeploymentLog } from "@relay/shared";
+import {
+  deploymentStatuses,
+  type CreateDeploymentInput,
+  type Deployment,
+  type DeploymentLog,
+  type DeploymentStatus,
+} from "@relay/shared";
 
 import "./App.css";
 
@@ -44,8 +51,53 @@ async function createDeployment(input: CreateDeploymentInput): Promise<Deploymen
   return response.json();
 }
 
+async function redeployDeployment(deploymentId: string): Promise<Deployment> {
+  const response = await fetch(`/api/deployments/${deploymentId}/redeploy`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const error = (await response.json()) as { message?: string };
+    throw new Error(error.message ?? "Failed to redeploy deployment.");
+  }
+
+  return response.json();
+}
+
+async function deleteDeployment(deploymentId: string): Promise<void> {
+  const response = await fetch(`/api/deployments/${deploymentId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const error = (await response.json()) as { message?: string };
+    throw new Error(error.message ?? "Failed to delete deployment.");
+  }
+}
+
 function formatCreatedAt(value: string) {
   return new Date(value).toLocaleString();
+}
+
+function formatCreatedAgo(value: string) {
+  const diffMs = Date.now() - new Date(value).getTime();
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+
+  if (diffMinutes < 1) {
+    return "just now";
+  }
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`;
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
 }
 
 function formatLogLine(log: DeploymentLog) {
@@ -54,7 +106,7 @@ function formatLogLine(log: DeploymentLog) {
   return `[${timestamp}] ${log.stream}: ${log.message}`;
 }
 
-function getStatusChipClass(status: string) {
+function getStatusChipClass(status: DeploymentStatus | "idle") {
   switch (status) {
     case "running":
       return "status-chip status-chip-running";
@@ -69,9 +121,30 @@ function getStatusChipClass(status: string) {
   }
 }
 
+function getRepoLabel(repoUrl: string) {
+  try {
+    const url = new URL(repoUrl);
+    return url.pathname.replace(/^\//, "").replace(/\.git$/, "");
+  } catch {
+    return repoUrl;
+  }
+}
+
+function getShortId(value: string) {
+  return value.slice(0, 8);
+}
+
+function getFilterLabel(status: DeploymentStatus | "all") {
+  return status === "all" ? "all" : status;
+}
+
 function App() {
   const [repoUrl, setRepoUrl] = useState("");
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<DeploymentStatus | "all">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const logSurfaceRef = useRef<HTMLPreElement | null>(null);
   const queryClient = useQueryClient();
 
   const deploymentsQuery = useQuery({
@@ -79,11 +152,33 @@ function App() {
     queryFn: fetchDeployments,
   });
 
+  const filteredDeployments = useMemo(() => {
+    const searchValue = searchQuery.trim().toLowerCase();
+
+    return (deploymentsQuery.data ?? []).filter((deployment) => {
+      const matchesStatus = statusFilter === "all" || deployment.status === statusFilter;
+      const matchesSearch =
+        !searchValue ||
+        deployment.name.toLowerCase().includes(searchValue) ||
+        deployment.repoUrl.toLowerCase().includes(searchValue) ||
+        getRepoLabel(deployment.repoUrl).toLowerCase().includes(searchValue);
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [deploymentsQuery.data, searchQuery, statusFilter]);
+
   const deploymentLogsQuery = useQuery({
     queryKey: ["deployment-logs", selectedDeploymentId],
     queryFn: () => fetchDeploymentLogs(selectedDeploymentId!),
     enabled: Boolean(selectedDeploymentId),
   });
+
+  const selectedDeployment =
+    deploymentsQuery.data?.find((deployment) => deployment.id === selectedDeploymentId) ?? null;
+
+  const selectedDeploymentLogText = deploymentLogsQuery.data?.length
+    ? deploymentLogsQuery.data.map(formatLogLine).join("\n")
+    : null;
 
   useEffect(() => {
     if (!selectedDeploymentId) {
@@ -115,66 +210,112 @@ function App() {
   }, [queryClient, selectedDeploymentId]);
 
   useEffect(() => {
-    if (!deploymentsQuery.data?.length) {
+    if (!filteredDeployments.length) {
       setSelectedDeploymentId(null);
       return;
     }
 
     if (
       selectedDeploymentId &&
-      deploymentsQuery.data.some((deployment) => deployment.id === selectedDeploymentId)
+      filteredDeployments.some((deployment) => deployment.id === selectedDeploymentId)
     ) {
       return;
     }
 
-    setSelectedDeploymentId(deploymentsQuery.data[0].id);
-  }, [deploymentsQuery.data, selectedDeploymentId]);
+    setSelectedDeploymentId(filteredDeployments[0].id);
+  }, [filteredDeployments, selectedDeploymentId]);
+
+  useEffect(() => {
+    if (!copiedField) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setCopiedField(null);
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [copiedField]);
+
+  useEffect(() => {
+    if (!logSurfaceRef.current) {
+      return;
+    }
+
+    logSurfaceRef.current.scrollTop = logSurfaceRef.current.scrollHeight;
+  }, [selectedDeploymentId, selectedDeploymentLogText]);
 
   const createDeploymentMutation = useMutation({
     mutationFn: createDeployment,
     onSuccess: async (deployment) => {
       setRepoUrl("");
+      setStatusFilter("all");
+      setSearchQuery("");
       setSelectedDeploymentId(deployment.id);
       await queryClient.invalidateQueries({ queryKey: ["deployments"] });
     },
   });
 
-  const selectedDeployment =
-    deploymentsQuery.data?.find((deployment) => deployment.id === selectedDeploymentId) ?? null;
+  const redeployDeploymentMutation = useMutation({
+    mutationFn: redeployDeployment,
+    onSuccess: async (deployment) => {
+      setSelectedDeploymentId(deployment.id);
+      await queryClient.invalidateQueries({ queryKey: ["deployments"] });
+      await queryClient.invalidateQueries({ queryKey: ["deployment-logs", deployment.id] });
+    },
+  });
+
+  const deleteDeploymentMutation = useMutation({
+    mutationFn: deleteDeployment,
+    onSuccess: async (_, deletedDeploymentId) => {
+      if (selectedDeploymentId === deletedDeploymentId) {
+        setSelectedDeploymentId(null);
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["deployments"] });
+    },
+  });
+
+  async function copyValue(key: string, value: string) {
+    if (!navigator.clipboard) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(value);
+    setCopiedField(key);
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     createDeploymentMutation.mutate({ repoUrl });
+  }
+
+  function handleSelectDeployment(deploymentId: string) {
+    setSelectedDeploymentId(deploymentId);
+  }
+
+  function handleRedeploy(deploymentId: string) {
+    redeployDeploymentMutation.mutate(deploymentId);
+  }
+
+  function handleDelete(deploymentId: string) {
+    deleteDeploymentMutation.mutate(deploymentId);
   }
 
   return (
     <main className="app-shell">
-      <header className="hero-block">
-        <div>
+      <section className="topbar panel" aria-labelledby="deploy-heading">
+        <div className="brand-block">
           <p className="eyebrow">Relay</p>
-          <h1>Internal deployment control plane</h1>
-          <p className="hero-copy">
-            Deploy containerized applications, inspect state transitions, and follow live logs from
-            a single surface.
-          </p>
-        </div>
-      </header>
-
-      <section className="panel deploy-panel" aria-labelledby="deploy-heading">
-        <div className="panel-header">
-          <div>
-            <h2 id="deploy-heading">New deployment</h2>
-            <p>Start with a public GitHub repository URL.</p>
-          </div>
+          <h1 id="deploy-heading">Your deployment pipeline in one page</h1>
         </div>
 
-        <form className="deploy-form" onSubmit={handleSubmit}>
-          <label className="field-label" htmlFor="repo-url">
-            Repository URL
-          </label>
+        <form className="deploy-form deploy-form-inline" onSubmit={handleSubmit}>
           <div className="deploy-form-row">
             <input
+              aria-label="GitHub repository URL"
               id="repo-url"
               name="repoUrl"
               type="url"
@@ -184,7 +325,7 @@ function App() {
               disabled={createDeploymentMutation.isPending}
             />
             <button type="submit" disabled={createDeploymentMutation.isPending || !repoUrl.trim()}>
-              {createDeploymentMutation.isPending ? "Deploying..." : "Deploy"}
+              {createDeploymentMutation.isPending ? "Deploying" : "Deploy"}
             </button>
           </div>
 
@@ -194,87 +335,250 @@ function App() {
         </form>
       </section>
 
-      <section className="workspace-grid">
+      <section className="workspace-stack">
         <section className="panel" aria-labelledby="deployments-heading">
-          <div className="panel-header">
+          <div className="section-heading history-heading">
             <div>
-              <h2 id="deployments-heading">Deployments</h2>
-              <p>Current runtime history will appear here.</p>
+              <h2 id="deployments-heading">Runtime history</h2>
             </div>
+            <div className="history-summary">
+              <span>{filteredDeployments.length} visible</span>
+              <span>{deploymentsQuery.data?.length ?? 0} total</span>
+            </div>
+          </div>
+
+          <div className="filter-row" aria-label="Deployment filters">
+            <label className="filter-field">
+              <span>Status</span>
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as DeploymentStatus | "all")
+                }
+              >
+                <option value="all">All states</option>
+                {deploymentStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {getFilterLabel(status)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="filter-field filter-field-search">
+              <span>Search</span>
+              <input
+                type="search"
+                placeholder="Search repo or deployment"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+            </label>
+
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void queryClient.invalidateQueries({ queryKey: ["deployments"] })}
+            >
+              Refresh
+            </button>
           </div>
 
           <div className="table-shell" role="table" aria-label="Deployments">
             <div className="table-row table-row-head" role="row">
-              <span>Name</span>
+              <span>Repo</span>
               <span>Status</span>
-              <span>URL</span>
+              <span>Image</span>
               <span>Created</span>
+              <span>Actions</span>
             </div>
 
             {deploymentsQuery.isLoading ? (
-              <div className="table-row" role="row">
+              <div className="table-row table-row-empty" role="row">
                 <span className="mono">Loading deployments...</span>
-                <span className={getStatusChipClass("idle")}>Loading</span>
-                <span className="muted">-</span>
-                <span className="muted">-</span>
               </div>
             ) : null}
 
             {deploymentsQuery.isError ? (
-              <div className="table-row" role="row">
-                <span className="mono">Failed to load deployments</span>
-                <span className={getStatusChipClass("failed")}>Error</span>
-                <span className="muted">-</span>
-                <span className="muted">-</span>
+              <div className="table-row table-row-empty" role="row">
+                <span className="mono">Failed to load deployments.</span>
               </div>
             ) : null}
 
-            {deploymentsQuery.data?.length
-              ? deploymentsQuery.data.map((deployment) => (
+            {filteredDeployments.map((deployment) => (
+              <div
+                className={`table-row table-row-button${selectedDeploymentId === deployment.id ? " table-row-selected" : ""}`}
+                role="row"
+                key={deployment.id}
+              >
+                <span className="deployment-cell">
                   <button
-                    className={`table-row table-row-button${selectedDeploymentId === deployment.id ? " table-row-selected" : ""}`}
-                    role="row"
+                    className="table-row-trigger"
                     type="button"
-                    key={deployment.id}
-                    onClick={() => setSelectedDeploymentId(deployment.id)}
+                    onClick={() => handleSelectDeployment(deployment.id)}
                   >
-                    <span className="mono">{deployment.name}</span>
-                    <span className={getStatusChipClass(deployment.status)}>
-                      {deployment.status}
+                    <span className="deployment-primary mono">
+                      {getRepoLabel(deployment.repoUrl)}
                     </span>
-                    <span className="muted">{deployment.url ?? "-"}</span>
-                    <span className="muted">{formatCreatedAt(deployment.createdAt)}</span>
+                    <span className="deployment-secondary">{deployment.name}</span>
                   </button>
-                ))
-              : null}
+                </span>
+                <span className={getStatusChipClass(deployment.status)}>{deployment.status}</span>
+                <span className="table-truncate mono">{deployment.imageTag ?? "pending"}</span>
+                <span className="deployment-cell deployment-cell-time">
+                  <span className="deployment-primary">
+                    {formatCreatedAgo(deployment.createdAt)}
+                  </span>
+                  <span className="deployment-secondary">
+                    {formatCreatedAt(deployment.createdAt)}
+                  </span>
+                </span>
+                <span className="row-actions">
+                  {deployment.url ? (
+                    <a
+                      className="row-action-button"
+                      href={deployment.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`Open ${deployment.name}`}
+                    >
+                      <ExternalLink size={14} strokeWidth={1.75} />
+                    </a>
+                  ) : (
+                    <span
+                      className="row-action-button row-action-button-placeholder"
+                      aria-hidden="true"
+                    >
+                      <ExternalLink size={14} strokeWidth={1.75} />
+                    </span>
+                  )}
+                  <button
+                    className="row-action-button"
+                    type="button"
+                    aria-label={`Redeploy ${deployment.name}`}
+                    onClick={() => handleRedeploy(deployment.id)}
+                    disabled={redeployDeploymentMutation.isPending}
+                  >
+                    <RefreshCcw size={14} strokeWidth={1.75} />
+                  </button>
+                  <button
+                    className="row-action-button row-action-button-danger"
+                    type="button"
+                    aria-label={`Delete ${deployment.name}`}
+                    onClick={() => handleDelete(deployment.id)}
+                    disabled={deleteDeploymentMutation.isPending}
+                  >
+                    <Trash2 size={14} strokeWidth={1.75} />
+                  </button>
+                </span>
+              </div>
+            ))}
 
             {!deploymentsQuery.isLoading &&
             !deploymentsQuery.isError &&
-            !deploymentsQuery.data?.length ? (
-              <div className="table-row" role="row">
-                <span className="mono">No deployments yet</span>
-                <span className={getStatusChipClass("idle")}>Idle</span>
-                <span className="muted">-</span>
-                <span className="muted">-</span>
+            !filteredDeployments.length ? (
+              <div className="table-row table-row-empty" role="row">
+                <span className="mono">No deployments match the current filters.</span>
               </div>
             ) : null}
           </div>
         </section>
 
         <section className="panel logs-panel" aria-labelledby="logs-heading">
-          <div className="panel-header">
+          <div className="section-heading logs-heading">
             <div>
-              <h2 id="logs-heading">Logs</h2>
-              <p>
-                {selectedDeployment
-                  ? `Viewing ${selectedDeployment.name} (${selectedDeployment.status})`
-                  : "Select a deployment to inspect build and runtime output."}
+              <h2 id="logs-heading">Run output</h2>
+              <p className="logs-subtitle">
+                {selectedDeployment ? selectedDeployment.name : "Select a deployment"}
               </p>
             </div>
+            {selectedDeployment ? (
+              <div className="logs-actions">
+                {selectedDeployment.url ? (
+                  <a
+                    className="secondary-button"
+                    href={selectedDeployment.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open URL
+                  </a>
+                ) : null}
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() =>
+                    void queryClient.invalidateQueries({
+                      queryKey: ["deployment-logs", selectedDeployment.id],
+                    })
+                  }
+                >
+                  Refresh logs
+                </button>
+                {selectedDeployment.status === "failed" ? (
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => handleRedeploy(selectedDeployment.id)}
+                    disabled={redeployDeploymentMutation.isPending}
+                  >
+                    Retry deploy
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
-          <pre className="log-surface">
-            {!selectedDeploymentId ? "Waiting for deployment logs." : null}
+          {selectedDeployment ? (
+            <div className="deployment-detail-grid">
+              <div className="detail-card">
+                <span className="meta-label">Status</span>
+                <span className={getStatusChipClass(selectedDeployment.status)}>
+                  {selectedDeployment.status}
+                </span>
+              </div>
+
+              <div className="detail-card">
+                <span className="meta-label">Deployment ID</span>
+                <div className="detail-inline">
+                  <code>{getShortId(selectedDeployment.id)}</code>
+                  <button
+                    className="copy-button"
+                    type="button"
+                    onClick={() => void copyValue("deployment-id", selectedDeployment.id)}
+                  >
+                    {copiedField === "deployment-id" ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="detail-card">
+                <span className="meta-label">Image tag</span>
+                <div className="detail-inline">
+                  <code>{selectedDeployment.imageTag ?? "pending"}</code>
+                  {selectedDeployment.imageTag ? (
+                    <button
+                      className="copy-button"
+                      type="button"
+                      onClick={() => void copyValue("image-tag", selectedDeployment.imageTag!)}
+                    >
+                      {copiedField === "image-tag" ? "Copied" : "Copy"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="detail-card">
+                <span className="meta-label">Repository</span>
+                <code>{getRepoLabel(selectedDeployment.repoUrl)}</code>
+              </div>
+            </div>
+          ) : null}
+
+          <pre className="log-surface" ref={logSurfaceRef}>
+            {!selectedDeploymentId
+              ? "Select a deployment to inspect build and runtime output."
+              : null}
             {selectedDeploymentId && deploymentLogsQuery.isLoading
               ? "Loading deployment logs..."
               : null}
@@ -287,9 +591,7 @@ function App() {
             !deploymentLogsQuery.data?.length
               ? "No logs available yet."
               : null}
-            {deploymentLogsQuery.data?.length
-              ? deploymentLogsQuery.data.map(formatLogLine).join("\n")
-              : null}
+            {selectedDeploymentLogText}
           </pre>
         </section>
       </section>

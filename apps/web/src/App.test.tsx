@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
@@ -84,6 +84,18 @@ describe("App", () => {
                 createdAt: "2026-04-26T19:00:00.000Z",
                 updatedAt: "2026-04-26T19:00:00.000Z",
               },
+              {
+                id: "dep_2",
+                name: "bright-orbit-456",
+                repoUrl: "https://github.com/acme/worker-app",
+                status: "failed",
+                imageTag: "relay/worker-app:sha-123",
+                containerId: null,
+                detectedPort: null,
+                url: null,
+                createdAt: "2026-04-25T19:00:00.000Z",
+                updatedAt: "2026-04-25T19:00:00.000Z",
+              },
             ],
           };
         }
@@ -103,6 +115,21 @@ describe("App", () => {
           };
         }
 
+        if (url.endsWith("/deployments/dep_2/logs")) {
+          return {
+            ok: true,
+            json: async () => [
+              {
+                id: "log_2",
+                deploymentId: "dep_2",
+                timestamp: "2026-04-25T19:00:01.000Z",
+                stream: "stderr",
+                message: "build failed",
+              },
+            ],
+          };
+        }
+
         return {
           ok: true,
           json: async () => [],
@@ -111,6 +138,11 @@ describe("App", () => {
     );
 
     vi.stubGlobal("EventSource", mockEventSource as unknown as typeof EventSource);
+    vi.stubGlobal("navigator", {
+      clipboard: {
+        writeText: vi.fn(async () => undefined),
+      },
+    });
   });
 
   afterEach(() => {
@@ -118,14 +150,26 @@ describe("App", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders the Relay heading and deployment history", async () => {
+  it("renders the deploy form and deployment history on one page", async () => {
     renderApp();
 
     expect(
-      screen.getByRole("heading", { name: "Internal deployment control plane" }),
+      screen.getByRole("heading", { name: "Your deployment pipeline in one page" }),
     ).toBeInTheDocument();
-    expect(await screen.findByText("storm-fox-123")).toBeInTheDocument();
+    expect(screen.getByLabelText("GitHub repository URL")).toBeInTheDocument();
+    expect(await screen.findByText("acme/example-app")).toBeInTheDocument();
     expect(await screen.findByText(/cloning repo/)).toBeInTheDocument();
+  });
+
+  it("filters deployments and switches the selected logs panel", async () => {
+    renderApp();
+
+    expect(await screen.findByText("acme/example-app")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "failed" } });
+
+    expect((await screen.findAllByText("bright-orbit-456")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("acme/example-app")).not.toBeInTheDocument();
+    expect(await screen.findByText(/build failed/)).toBeInTheDocument();
   });
 
   it("appends streamed logs for the selected deployment", async () => {
@@ -136,7 +180,7 @@ describe("App", () => {
     mockEventSourceInstances[0].emit(
       "log",
       JSON.stringify({
-        id: "log_2",
+        id: "log_3",
         deploymentId: "dep_1",
         timestamp: "2026-04-26T19:00:02.000Z",
         stream: "stdout",
